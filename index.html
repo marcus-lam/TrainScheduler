@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="utf-8"/>
+	<title>Train Scheduler!</title>
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
+	<link href="https://fonts.googleapis.com/css?family=Ubuntu:400,700" rel="stylesheet">
+</head>
+
+<body style="background: url('small_steps.png')">
+	<div class="container" style="font-family: Ubuntu">
+
+		<div class="jumbotron text-center" style="background-color: #dd4814; color: white">
+			<h1>Train Time Is Anytime</h1>
+			<h2>And Anytime Is Train</h2>
+			<br>
+			<h3 id="currentTime"></h3>
+		</div>
+
+		<div class="row">
+			<div class="col-lg-12">
+
+				<div class="panel panel-primary" style="border-color: #dd4814">
+					<div class="panel-heading" style="background-color: #dd4814">
+						<h3 class="panel-title"><strong>Current Train Schedule</strong></h3>
+					</div>
+					<div class="panel-body">
+						<table class="table table-hover" id="train-schedule">
+							<thead>
+								<tr>
+									<th>Train Name</th>
+									<th>Destination</th>
+									<th>Frequency (min)</th>
+									<th>Next Arrival (HH:mm)</th>
+									<th>Minutes Away</th>
+								</tr>
+							</thead>
+							<tbody>
+								<!--DOM Elements Go Here-->
+							</tbody>
+						</table>
+					</div>
+				</div>
+
+				<div class="panel panel-primary" style="border-color: #dd4814">
+					<div class="panel-heading" style="background-color: #dd4814">
+						<h3 class="panel-title"><strong>Add Train</strong></h3>
+					</div>
+					<div class="panel-body">
+						<form>
+							<div class="form-group">
+								<label for="trainNameInput">Train Name</label>
+								<input type="text" class="form-control" id="trainNameInput" required>
+							</div>
+							<div class="form-group">
+								<label for="destinationInput">Destination</label>
+								<input type="text" class="form-control" id="destinationInput" required>
+							</div>
+							<div class="form-group">
+								<label for="trainTimeInput">First Train Time</label>
+								<input type="time" class="form-control" id="trainTimeInput" required>
+							</div>
+							<div class="form-group">
+								<label for="frequencyInput">Frequency (min)</label>
+								<input type="number" name="frequency" min="1" class="form-control" id="frequencyInput" required>
+							</div>
+							<button type="submit" class="btn btn-primary" id="addTrainBtn" style="background-color: #dd4814; border-color: #dd4814">Submit</button>
+						</form>
+					</div>
+				</div>
+
+			</div>
+		</div>
+	
+	</div>
+
+	<script src="https://code.jquery.com/jquery-2.2.4.min.js" integrity="sha256-BbhdlvQf/xTY9gja0Dq3HiwQF8LaCRTXxZKRutelT44=" crossorigin="anonymous"></script>
+	<script src="https://www.gstatic.com/firebasejs/3.3.0/firebase.js"></script>
+	<script src="https://cdn.jsdelivr.net/momentjs/2.12.0/moment.min.js"></script>
+	<script>
+
+	var config = {
+	    apiKey: "AIzaSyCa7zp1BKbBwqm_nxs5_Pl75n41R6Rt63M",
+	    authDomain: "st-p-f32e7.firebaseapp.com",
+	    databaseURL: "https://st-p-f32e7.firebaseio.com",
+	    storageBucket: "st-p-f32e7.appspot.com",
+	};
+	firebase.initializeApp(config);
+
+	var database = firebase.database();
+	var tName, tDestination, tTime, tFrequency;
+
+	$("#addTrainBtn").on("click", function() {
+
+		event.preventDefault();
+
+		tName = $("#trainNameInput").val().trim();
+		tDestination = $("#destinationInput").val().trim();
+		tTime = $("#trainTimeInput").val().trim();
+		tFrequency = $("#frequencyInput").val().trim();
+
+		if (tName == "" || tDestination == "" || tTime == "" || tFrequency == "") {
+			alert("Please fill out all the fields below.");
+		} else {
+			var newTrain = {
+				name: tName,
+				destination: tDestination,
+				time: tTime,
+				frequency: tFrequency
+			}
+
+			database.ref().push(newTrain);
+
+			$("#trainNameInput").val("");
+			$("#destinationInput").val("");
+			$("#trainTimeInput").val("");
+			$("#frequencyInput").val("");
+		};
+
+	});
+
+	database.ref().on("child_added", function(childSnapshot, prevChildKey) {
+
+		function autoSync() {
+
+			tName = childSnapshot.val().name;
+			tDestination = childSnapshot.val().destination;
+			tTime = childSnapshot.val().time;
+			tFrequency = childSnapshot.val().frequency;
+
+			var timeNow = moment().format("HH:mm");
+			$("#currentTime").html("Current Time: " + timeNow);
+
+			var firstTime = moment(tTime, "HH:mm").subtract(1, "years");
+			var timeDiff = moment().diff(moment(firstTime), "minutes");
+			var timeLeft = timeDiff % tFrequency;
+			var minutesAway = tFrequency - timeLeft;
+			var nextTrain = moment().add(minutesAway, "minutes");
+			var nextArrival = moment(nextTrain).format("HH:mm");
+
+			var row = $('<tr>');
+			row.attr('data-name', tName);
+			row.attr('data-destination', tDestination);
+
+			row.append('<td>' +tName + '</td>');
+			row.append('<td>' +tDestination + '</td>');
+			row.append('<td>' +tFrequency + '</td>');
+			row.append('<td>' +nextArrival + '</td>');
+			row.append('<td>' +minutesAway + '</td>');
+
+			$("table tr[data-name='" + tName + "'][data-destination='" + tDestination + "']").remove();
+			$('#train-schedule > tbody').append(row);
+
+		};
+
+		autoSync();
+		setInterval(autoSync, 1000*60);
+
+	});
+
+	</script>
+</body>
+
+</html>
